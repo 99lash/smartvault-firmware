@@ -38,6 +38,10 @@ void pin_auth_verify(const char* pin, pin_auth_result_cb_t callback) {
     http.setTimeout(8000);
     http.begin(url);
     http.addHeader("Content-Type", "application/json");
+    Serial.print("[PIN_AUTH] PIN being sent: ");
+    Serial.println(pin);
+    Serial.print("[PIN_AUTH] Payload: ");
+    Serial.println(payload);
     int status = http.POST(payload);
 
     if (status > 0) {

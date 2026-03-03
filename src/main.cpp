@@ -1,14 +1,15 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include "api_client.h"
+#include "buzzer.h"
 #include "keypad.h"
 #include "nvs_storage.h"
 #include "pin_auth.h"
 #include "pin_entry.h"
 #include "provisioning.h"
+#include "solenoid.h"
 #include "wifi_manager.h"
 #include "ws_client.h"
-#include "solenoid.h"
 
 namespace {
 constexpr size_t kSsidMaxLen = 33;
@@ -19,6 +20,7 @@ constexpr size_t kApiUrlMaxLen = 129;
 String g_api_url;
 String g_mac;
 static bool g_authorized_unlock = false;
+static bool g_tamper_alarm_active = false;
 
 void handle_reprovision() {
   Serial.println("Reprovisioning...");
@@ -35,10 +37,12 @@ void handle_remote_unlock() {
 void handle_pin_result(bool accepted) {
   if (accepted) {
     Serial.println("Access granted");
+    buzzer_success();
     g_authorized_unlock = true;
     solenoid_unlock();
   } else {
     Serial.println("Access denied");
+    buzzer_fail();
   }
 }
 
@@ -88,6 +92,7 @@ void handle_provisioning_done(const ProvisioningData &data) {
 
 void setup() {
   Serial.begin(115200);
+  buzzer_init();
   keypad_init();
   solenoid_init();
   nvs_storage_init();
@@ -140,10 +145,13 @@ void loop() {
     if (!sensor_locked) {
       if (!g_authorized_unlock) {
         Serial.println("TAMPER DETECTED");
+        g_tamper_alarm_active = true;
+        buzzer_tamper();
         api_client_send_tamper_alert(g_mac.c_str());
       }
     } else {
       g_authorized_unlock = false;
+      g_tamper_alarm_active = false;
     }
     Serial.println(sensor_locked ? "Lock: LOCKED" : "Lock: OPEN");
     ws_client_send_state(sensor_locked ? "LOCKED" : "UNLOCKED");
@@ -153,5 +161,6 @@ void loop() {
   if (key) {
     pin_entry_handle_key(key);
   }
+  digitalWrite(BUZZER_PIN, g_tamper_alarm_active ? HIGH : LOW);
   delay(10);
 }

@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "pin_entry.h"
+#include "buzzer.h"
 
 namespace {
 constexpr size_t kMaxPinLen = 16;
@@ -25,6 +26,8 @@ void pin_entry_handle_key(char key) {
 
   if (key == '#') {
     g_pin_buffer[g_pin_len] = '\0';
+    Serial.print("[PIN_ENTRY] Submitting PIN: ");
+    Serial.println(g_pin_buffer);
     pin_auth_verify(g_pin_buffer, g_callback);
     clear_pin();
     return;
@@ -41,6 +44,7 @@ void pin_entry_handle_key(char key) {
       g_pin_buffer[g_pin_len] = key;
       ++g_pin_len;
       Serial.print("*");
+      buzzer_keypress();
     }
     return;
   }
