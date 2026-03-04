@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include "api_client.h"
 
 namespace {
@@ -40,8 +41,10 @@ bool api_client_register_device(const char* hardware_uuid, const char* token) {
            hardware_uuid, token);
 
   for (int attempt = 1; attempt <= kMaxRetries; ++attempt) {
+    WiFiClientSecure client;
+    client.setInsecure();
     HTTPClient http;
-    http.begin(url);
+    http.begin(client, url);
     http.addHeader("Content-Type", "application/json");
     int status = http.POST(reinterpret_cast<uint8_t*>(body), strlen(body));
     Serial.print("Register attempt ");
@@ -80,8 +83,10 @@ bool api_client_send_tamper_alert(const char* hardware_uuid) {
   char body[kBodySize];
   snprintf(body, sizeof(body), "{\"hardware_uuid\":\"%s\"}", hardware_uuid);
 
+  WiFiClientSecure client;
+  client.setInsecure();
   HTTPClient http;
-  http.begin(url);
+  http.begin(client, url);
   http.addHeader("Content-Type", "application/json");
   int status = http.POST(reinterpret_cast<uint8_t*>(body), strlen(body));
   Serial.print("Tamper alert status: ");

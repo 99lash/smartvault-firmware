@@ -127,6 +127,7 @@ void start_connection() {
 
   if (g_use_ssl) {
     webSocket.beginSSL(g_host.c_str(), g_port, g_path.c_str());
+    webSocket.setInsecure();
   } else {
     webSocket.begin(g_host.c_str(), g_port, g_path.c_str());
   }
