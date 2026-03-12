@@ -15,6 +15,7 @@ namespace {
 constexpr size_t kSsidMaxLen = 33;
 constexpr size_t kPasswordMaxLen = 65;
 constexpr size_t kTokenMaxLen = 129;
+constexpr size_t kApiUrlMaxLen = 129;
 
 String g_api_url;
 String g_mac;
@@ -22,24 +23,9 @@ static bool g_authorized_unlock = false;
 static bool g_tamper_alarm_active = false;
 
 void handle_reprovision() {
-  Serial.println("Reprovision triggered");
+  Serial.println("Reprovisioning...");
   ws_client_stop();
-
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("WiFi connected, deleting vault from backend");
-    String mac = WiFi.macAddress();
-    bool deprovisioned = api_client_deprovision_device(mac.c_str());
-    if (deprovisioned) {
-      Serial.println("Backend deprovision complete");
-    } else {
-      Serial.println("Backend deprovision failed, continuing");
-    }
-  } else {
-    Serial.println("No WiFi, skipping backend deprovision");
-  }
-
   nvs_storage_erase_all();
-  delay(2000);
   ESP.restart();
 }
 
@@ -78,6 +64,8 @@ void handle_provisioning_done(const ProvisioningData &data) {
   Serial.println(data.ssid);
   Serial.print("Token: ");
   Serial.println(data.token);
+  Serial.print("API URL: ");
+  Serial.println(data.api_url);
 
   bool wifi_connected = wifi_manager_connect(data.ssid, data.password);
   if (!wifi_connected) {
@@ -86,28 +74,20 @@ void handle_provisioning_done(const ProvisioningData &data) {
   }
 
   Serial.println("WiFi connected");
-  const char* api_url = provisioning_get_api_url();
-  api_client_init(api_url);
+  api_client_init(data.api_url);
   String mac = WiFi.macAddress();
-  constexpr size_t kVaultIdMaxLen = 65;
-  char vault_id[kVaultIdMaxLen] = {0};
-  bool registered = api_client_register_device(mac.c_str(), data.token, vault_id, sizeof(vault_id));
+  bool registered = api_client_register_device(mac.c_str(), data.token);
   if (!registered) {
     Serial.println("Device registration failed");
     return;
   }
 
   Serial.println("Device registered");
-  if (vault_id[0] != '\0') {
-    Serial.print("Vault ID: ");
-    Serial.println(vault_id);
-  }
   nvs_storage_save_wifi(data.ssid, data.password);
   nvs_storage_save_token(data.token);
-  nvs_storage_save_api_url(api_url);
-  nvs_storage_save_vault_id(vault_id);
+  nvs_storage_save_api_url(data.api_url);
   nvs_storage_set_provisioned(true);
-  start_normal_mode(api_url, mac.c_str());
+  start_normal_mode(data.api_url, mac.c_str());
 }
 }  // namespace
 
@@ -124,15 +104,16 @@ void setup() {
     char ssid[kSsidMaxLen] = {0};
     char password[kPasswordMaxLen] = {0};
     char token[kTokenMaxLen] = {0};
+    char api_url[kApiUrlMaxLen] = {0};
 
     bool loaded = nvs_storage_load_wifi(ssid, sizeof(ssid), password, sizeof(password))
-               && nvs_storage_load_token(token, sizeof(token));
+               && nvs_storage_load_token(token, sizeof(token))
+               && nvs_storage_load_api_url(api_url, sizeof(api_url));
 
     if (loaded) {
       bool connected = wifi_manager_connect(ssid, password);
       if (connected) {
         Serial.println("WiFi connected");
-        const char* api_url = provisioning_get_api_url();
         api_client_init(api_url);
         String mac = WiFi.macAddress();
         start_normal_mode(api_url, mac.c_str());

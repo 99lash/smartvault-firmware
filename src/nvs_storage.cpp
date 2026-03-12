@@ -9,6 +9,7 @@ const char kKeyWifiSsid[] = "wifi_ssid";
 const char kKeyWifiPass[] = "wifi_pass";
 const char kKeyToken[] = "token";
 const char kKeyApiUrl[] = "api_url";
+const char kKeyVaultId[] = "vault_id";
 const char kKeyNfcUid[] = "nfc_uid";
 
 Preferences g_preferences;
@@ -114,6 +115,19 @@ bool nvs_storage_load_nfc_uid(char* uid, size_t uid_len) {
   bool ok = nvs_storage_load_string(kKeyNfcUid, uid, uid_len);
   if (!ok) {
     Serial.println("NVS NFC UID load failed");
+  }
+  return ok;
+}
+
+void nvs_storage_save_vault_id(const char* vault_id) {
+  g_preferences.putString(kKeyVaultId, vault_id ? vault_id : "");
+  Serial.println("NVS saved vault ID");
+}
+
+bool nvs_storage_load_vault_id(char* vault_id, size_t vault_id_len) {
+  bool ok = nvs_storage_load_string(kKeyVaultId, vault_id, vault_id_len);
+  if (!ok) {
+    Serial.println("NVS vault ID load failed");
   }
   return ok;
 }
